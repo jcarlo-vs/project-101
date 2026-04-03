@@ -9,11 +9,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/actions/auth";
 
-export function TopNav() {
+interface TopNavProps {
+  userEmail?: string;
+  userName?: string;
+}
+
+export function TopNav({ userEmail, userName }: TopNavProps) {
   return (
     <header className="flex h-14 items-center gap-2 border-b px-4">
       <SidebarTrigger />
@@ -40,11 +47,32 @@ export function TopNav() {
           <span className="sr-only">User menu</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {(userName || userEmail) && (
+            <>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  {userName && (
+                    <p className="text-sm font-medium leading-none">{userName}</p>
+                  )}
+                  {userEmail && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {userEmail}
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem render={<Link href="/profile" />}>
             Profile
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Sign out</DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => signOut()}
+          >
+            Sign out
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

@@ -1,16 +1,16 @@
 # Phase 2: Authentication & User Management
 
 ## Tasks
-- [ ] Set up Supabase Auth configuration
-- [ ] Create Supabase server client helper (`src/lib/auth/server.ts`)
-- [ ] Create Supabase browser client helper (`src/lib/auth/client.ts`)
-- [ ] Create DB trigger: sync auth.users → public users table
-- [ ] Build registration page with form validation (Zod)
-- [ ] Build login page
-- [ ] Build forgot password page
-- [ ] Build reset password page
-- [ ] Implement email verification callback
-- [ ] Create Next.js middleware for auth redirect
-- [ ] Add auth guard to (app) layout
-- [ ] Build user profile page (edit name, avatar)
+- [x] Set up Supabase Auth configuration
+- [x] Create Supabase server client helper (`src/lib/auth/server.ts`)
+- [x] Create Supabase browser client helper (`src/lib/auth/client.ts`)
+- [x] Create DB trigger: sync auth.users → public users table
+- [x] Build registration page with form validation (Zod)
+- [x] Build login page
+- [x] Build forgot password page
+- [x] Build reset password page
+- [x] Implement email verification callback
+- [x] Create Next.js proxy for auth redirect (migrated from middleware to proxy.ts for Next.js 16)
+- [x] Add auth guard to (app) layout
+- [x] Build user profile page (edit name)
 - [ ] Test complete auth flow end-to-end

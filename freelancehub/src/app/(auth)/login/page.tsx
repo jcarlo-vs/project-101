@@ -1,3 +1,6 @@
+"use client";
+
+import { useActionState } from "react";
 import {
   Card,
   CardContent,
@@ -9,8 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { login, type AuthResult } from "@/lib/actions/auth";
 
 export default function LoginPage() {
+  const [state, formAction, pending] = useActionState<AuthResult, FormData>(
+    login,
+    {},
+  );
+
   return (
     <Card>
       <CardHeader className="text-center">
@@ -20,17 +29,28 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4">
+        <form action={formAction} className="space-y-4">
+          {state.error && (
+            <p className="text-sm text-destructive text-center">
+              {state.error}
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" />
+            <Input id="email" name="email" type="email" placeholder="you@example.com" />
+            {state.fieldErrors?.email && (
+              <p className="text-sm text-destructive">{state.fieldErrors.email[0]}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" />
+            <Input id="password" name="password" type="password" />
+            {state.fieldErrors?.password && (
+              <p className="text-sm text-destructive">{state.fieldErrors.password[0]}</p>
+            )}
           </div>
-          <Button type="submit" className="w-full">
-            Sign in
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Signing in..." : "Sign in"}
           </Button>
         </form>
         <div className="mt-4 text-center text-sm text-muted-foreground">
