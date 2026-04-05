@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useBills } from '@/context/BillContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/context/ToastContext';
 import { ConfirmModal } from '@/components/confirm-modal';
 import {
   Theme, BillCategoryColors, BillCategoryIcons, BILL_CATEGORIES, REMINDER_OPTIONS,
@@ -31,6 +32,7 @@ export default function AddBillScreen() {
   const { bills, addBill, updateBill, deleteBill } = useBills();
   const { currency } = useCurrency();
 
+  const { showToast } = useToast();
   const existing = id ? bills.find((b) => b.id === id) : undefined;
   const isEdit = !!existing;
 
@@ -84,6 +86,7 @@ export default function AddBillScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(isEdit ? 'Bill updated' : 'Bill added');
     router.back();
   };
 

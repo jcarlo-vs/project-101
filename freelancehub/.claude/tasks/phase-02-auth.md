@@ -13,4 +13,4 @@
 - [x] Create Next.js proxy for auth redirect (migrated from middleware to proxy.ts for Next.js 16)
 - [x] Add auth guard to (app) layout
 - [x] Build user profile page (edit name)
-- [ ] Test complete auth flow end-to-end
+- [x] Test complete auth flow end-to-end

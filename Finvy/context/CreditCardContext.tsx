@@ -17,6 +17,8 @@ type Action =
   | { type: 'TOGGLE_ACTIVE'; payload: string }
   | { type: 'ADD_PAYMENT'; payload: { cardId: string; payment: CreditCardPayment } }
   | { type: 'DELETE_PAYMENT'; payload: { cardId: string; paymentId: string } }
+  | { type: 'ADD_CHARGE'; payload: { cardId: string; amount: number; note?: string } }
+  | { type: 'UPDATE_BALANCE'; payload: { cardId: string; balance: number } }
   | { type: 'CONVERT_ALL'; payload: (amount: number) => number };
 
 function reducer(state: CreditCard[], action: Action): CreditCard[] {
@@ -52,6 +54,22 @@ function reducer(state: CreditCard[], action: Action): CreditCard[] {
           payments: c.payments.filter((p) => p.id !== action.payload.paymentId),
         };
       });
+    case 'ADD_CHARGE':
+      return state.map((c) => {
+        if (c.id !== action.payload.cardId) return c;
+        return {
+          ...c,
+          currentBalance: c.currentBalance + action.payload.amount,
+        };
+      });
+    case 'UPDATE_BALANCE':
+      return state.map((c) => {
+        if (c.id !== action.payload.cardId) return c;
+        return {
+          ...c,
+          currentBalance: Math.max(0, action.payload.balance),
+        };
+      });
     case 'CONVERT_ALL': {
       const conv = action.payload;
       const round = (n: number) => Math.round(conv(n) * 100) / 100;
@@ -59,6 +77,7 @@ function reducer(state: CreditCard[], action: Action): CreditCard[] {
         ...c,
         creditLimit: round(c.creditLimit),
         currentBalance: round(c.currentBalance),
+        statementBalance: round(c.statementBalance ?? 0),
         minimumPayment: round(c.minimumPayment),
         payments: c.payments.map((p) => ({ ...p, amount: round(p.amount) })),
       }));
@@ -79,6 +98,8 @@ interface CreditCardContextValue {
   toggleActive: (id: string) => void;
   addPayment: (cardId: string, payment: Omit<CreditCardPayment, 'id'>) => void;
   deletePayment: (cardId: string, paymentId: string) => void;
+  addCharge: (cardId: string, amount: number, note?: string) => void;
+  updateBalance: (cardId: string, balance: number) => void;
 }
 
 const CreditCardContext = createContext<CreditCardContextValue | null>(null);
@@ -103,7 +124,11 @@ export function CreditCardProvider({ children }: { children: React.ReactNode }) 
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
-          dispatch({ type: 'LOAD', payload: JSON.parse(stored) });
+          const cards = JSON.parse(stored).map((c: CreditCard) => ({
+            ...c,
+            statementBalance: c.statementBalance ?? 0,
+          }));
+          dispatch({ type: 'LOAD', payload: cards });
         } else {
           dispatch({ type: 'LOAD', payload: SAMPLE_DATA });
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_DATA));
@@ -159,9 +184,21 @@ export function CreditCardProvider({ children }: { children: React.ReactNode }) 
     [],
   );
 
+  const addCharge = useCallback(
+    (cardId: string, amount: number, note?: string) =>
+      dispatch({ type: 'ADD_CHARGE', payload: { cardId, amount, note } }),
+    [],
+  );
+
+  const updateBalance = useCallback(
+    (cardId: string, balance: number) =>
+      dispatch({ type: 'UPDATE_BALANCE', payload: { cardId, balance } }),
+    [],
+  );
+
   return (
     <CreditCardContext.Provider
-      value={{ creditCards, isLoading, addCreditCard, updateCreditCard, deleteCreditCard, toggleActive, addPayment, deletePayment }}
+      value={{ creditCards, isLoading, addCreditCard, updateCreditCard, deleteCreditCard, toggleActive, addPayment, deletePayment, addCharge, updateBalance }}
     >
       {children}
     </CreditCardContext.Provider>

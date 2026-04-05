@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { Toast } from "@/components/toast";
 import { WelcomeCurrencyModal } from "@/components/welcome-currency-modal";
 import { BillProvider } from "@/context/BillContext";
 import { BudgetProvider } from "@/context/BudgetContext";
@@ -11,6 +12,7 @@ import { CurrencyProvider, useCurrency } from "@/context/CurrencyContext";
 import { ExpenseProvider } from "@/context/ExpenseContext";
 import { LoanProvider } from "@/context/LoanContext";
 import { SubscriptionProvider } from "@/context/SubscriptionContext";
+import { ToastProvider, useToast } from "@/context/ToastContext";
 
 const FinvyDarkTheme = {
   ...DarkTheme,
@@ -24,6 +26,19 @@ const FinvyDarkTheme = {
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+function GlobalToast() {
+  const { toast, hideToast } = useToast();
+  return (
+    <Toast
+      message={toast.message}
+      visible={toast.visible}
+      onHide={hideToast}
+      icon={toast.icon}
+      color={toast.color}
+    />
+  );
+}
 
 function AppContent() {
   const { isFirstLaunch, isLoading, setCurrency } = useCurrency();
@@ -64,6 +79,10 @@ function AppContent() {
                       options={{ presentation: "modal", headerShown: false }}
                     />
                     <Stack.Screen
+                      name="loan-detail"
+                      options={{ presentation: "modal", headerShown: false }}
+                    />
+                    <Stack.Screen
                       name="add-expense"
                       options={{ presentation: "modal", headerShown: false }}
                     />
@@ -73,6 +92,7 @@ function AppContent() {
                     />
                   </Stack>
                   <StatusBar style="light" />
+                  <GlobalToast />
                 </ThemeProvider>
 
                 <WelcomeCurrencyModal
@@ -91,7 +111,9 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <CurrencyProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </CurrencyProvider>
   );
 }

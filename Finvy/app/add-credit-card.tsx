@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useCreditCards } from '@/context/CreditCardContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/context/ToastContext';
 import { ConfirmModal } from '@/components/confirm-modal';
 import {
   Theme, CARD_COLORS, CARD_NETWORKS, REMINDER_OPTIONS,
@@ -25,6 +26,7 @@ export default function AddCreditCardScreen() {
   const { creditCards, addCreditCard, updateCreditCard, deleteCreditCard } = useCreditCards();
   const { currency } = useCurrency();
 
+  const { showToast } = useToast();
   const existing = id ? creditCards.find((c) => c.id === id) : undefined;
   const isEdit = !!existing;
 
@@ -36,11 +38,13 @@ export default function AddCreditCardScreen() {
   const [creditLimit, setCreditLimit] = useState('');
   const [currentBalance, setCurrentBalance] = useState('');
   const [minimumPayment, setMinimumPayment] = useState('');
+  const [statementBalance, setStatementBalance] = useState('');
   const [apr, setApr] = useState('');
   const [statementDate, setStatementDate] = useState('15');
   const [dueDate, setDueDate] = useState('10');
   const [reminderOffset, setReminderOffset] = useState<ReminderOffset>(3);
   const [notes, setNotes] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
@@ -53,11 +57,15 @@ export default function AddCreditCardScreen() {
       setCreditLimit(existing.creditLimit.toString());
       setCurrentBalance(existing.currentBalance.toString());
       setMinimumPayment(existing.minimumPayment.toString());
+      setStatementBalance((existing.statementBalance ?? 0).toString());
       setApr(existing.apr.toString());
       setStatementDate(existing.statementDate.toString());
       setDueDate(existing.dueDate.toString());
       setReminderOffset(existing.reminderOffset);
       setNotes(existing.notes ?? '');
+      if (existing.issuer || existing.lastFourDigits || existing.apr > 0) {
+        setShowAdvanced(true);
+      }
     }
   }, [existing]);
 
@@ -74,6 +82,7 @@ export default function AddCreditCardScreen() {
       color,
       creditLimit: limit,
       currentBalance: parseFloat(currentBalance) || 0,
+      statementBalance: parseFloat(statementBalance) || 0,
       minimumPayment: parseFloat(minimumPayment) || 0,
       apr: parseFloat(apr) || 0,
       statementDate: Math.min(31, Math.max(1, parseInt(statementDate) || 1)),
@@ -97,6 +106,7 @@ export default function AddCreditCardScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(isEdit ? 'Card updated' : 'Card added');
     router.back();
   };
 
@@ -113,34 +123,6 @@ export default function AddCreditCardScreen() {
 
         <Text style={styles.label}>Card Name</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Sapphire Preferred" placeholderTextColor={Theme.textMuted} />
-
-        <Text style={styles.label}>Issuer / Bank</Text>
-        <TextInput style={styles.input} value={issuer} onChangeText={setIssuer} placeholder="e.g. Chase" placeholderTextColor={Theme.textMuted} />
-
-        <Text style={styles.label}>Last 4 Digits</Text>
-        <TextInput style={styles.input} value={lastFour} onChangeText={(t) => setLastFour(t.replace(/\D/g, '').slice(0, 4))} placeholder="1234" placeholderTextColor={Theme.textMuted} keyboardType="number-pad" maxLength={4} />
-
-        <Text style={styles.label}>Card Network</Text>
-        <View style={styles.segmented}>
-          {CARD_NETWORKS.map((n) => (
-            <TouchableOpacity key={n} style={[styles.segment, network === n && styles.segmentActive]} onPress={() => setNetwork(n)}>
-              <Text style={[styles.segmentText, network === n && styles.segmentTextActive]}>{n}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Card Color</Text>
-        <View style={styles.colorRow}>
-          {CARD_COLORS.map((c) => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.colorCircleActive]}
-              onPress={() => setColor(c)}
-            >
-              {color === c && <Ionicons name="checkmark" size={16} color="#FFF" />}
-            </TouchableOpacity>
-          ))}
-        </View>
 
         <View style={styles.row}>
           <View style={styles.halfField}>
@@ -159,33 +141,77 @@ export default function AddCreditCardScreen() {
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>Min Payment</Text>
-            <View style={styles.costRow}>
-              <Text style={styles.dollarSign}>{currency.symbol}</Text>
-              <TextInput style={[styles.input, { flex: 1 }]} value={minimumPayment} onChangeText={setMinimumPayment} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
-            </View>
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>APR %</Text>
-            <TextInput style={styles.input} value={apr} onChangeText={setApr} placeholder="24.99" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
-          </View>
-        </View>
-
-        <DayPickerField
-          label="Statement Date"
-          helperText="Day of the month when your billing statement is generated by your bank."
-          value={statementDate}
-          onChange={setStatementDate}
-        />
-
         <DayPickerField
           label="Due Date"
           helperText="Day of the month when your minimum payment must be received to avoid late fees."
           value={dueDate}
           onChange={setDueDate}
         />
+
+        {/* Advanced Details */}
+        <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvanced(!showAdvanced)}>
+          <Text style={styles.advancedToggleText}>Advanced details</Text>
+          <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={16} color={Theme.textMuted} />
+        </TouchableOpacity>
+
+        {showAdvanced && (
+          <>
+            <Text style={styles.label}>Issuer / Bank</Text>
+            <TextInput style={styles.input} value={issuer} onChangeText={setIssuer} placeholder="e.g. Chase" placeholderTextColor={Theme.textMuted} />
+
+            <Text style={styles.label}>Last 4 Digits</Text>
+            <TextInput style={styles.input} value={lastFour} onChangeText={(t) => setLastFour(t.replace(/\D/g, '').slice(0, 4))} placeholder="1234" placeholderTextColor={Theme.textMuted} keyboardType="number-pad" maxLength={4} />
+
+            <Text style={styles.label}>Card Network</Text>
+            <View style={styles.segmented}>
+              {CARD_NETWORKS.map((n) => (
+                <TouchableOpacity key={n} style={[styles.segment, network === n && styles.segmentActive]} onPress={() => setNetwork(n)}>
+                  <Text style={[styles.segmentText, network === n && styles.segmentTextActive]}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Card Color</Text>
+            <View style={styles.colorRow}>
+              {CARD_COLORS.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.colorCircleActive]}
+                  onPress={() => setColor(c)}
+                >
+                  {color === c && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Text style={styles.label}>Statement Balance</Text>
+                <View style={styles.costRow}>
+                  <Text style={styles.dollarSign}>{currency.symbol}</Text>
+                  <TextInput style={[styles.input, { flex: 1 }]} value={statementBalance} onChangeText={setStatementBalance} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+                </View>
+              </View>
+              <View style={styles.halfField}>
+                <Text style={styles.label}>Min Payment</Text>
+                <View style={styles.costRow}>
+                  <Text style={styles.dollarSign}>{currency.symbol}</Text>
+                  <TextInput style={[styles.input, { flex: 1 }]} value={minimumPayment} onChangeText={setMinimumPayment} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.label}>APR %</Text>
+            <TextInput style={styles.input} value={apr} onChangeText={setApr} placeholder="24.99" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+
+            <DayPickerField
+              label="Statement Date"
+              helperText="Day of the month when your billing statement is generated by your bank."
+              value={statementDate}
+              onChange={setStatementDate}
+            />
+          </>
+        )}
 
         <Text style={styles.label}>Remind me</Text>
         <View style={styles.reminderGrid}>
@@ -261,6 +287,13 @@ const styles = StyleSheet.create({
   colorRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   colorCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   colorCircleActive: { borderWidth: 2, borderColor: '#FFF' },
+  advancedToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 24, paddingVertical: 12, paddingHorizontal: 14,
+    backgroundColor: Theme.inputBg, borderWidth: 1, borderColor: Theme.inputBorder,
+    borderRadius: Theme.borderRadius.input,
+  },
+  advancedToggleText: { fontSize: 14, fontWeight: '500', color: Theme.textMuted },
   reminderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   reminderPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

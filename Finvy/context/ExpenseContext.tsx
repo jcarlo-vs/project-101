@@ -10,6 +10,7 @@ const SAMPLE_DATA: Expense[] = [];
 type Action =
   | { type: 'LOAD'; payload: Expense[] }
   | { type: 'ADD'; payload: Expense }
+  | { type: 'UPDATE'; payload: Expense }
   | { type: 'DELETE'; payload: string }
   | { type: 'CONVERT_ALL'; payload: (amount: number) => number };
 
@@ -19,6 +20,8 @@ function reducer(state: Expense[], action: Action): Expense[] {
       return action.payload;
     case 'ADD':
       return [action.payload, ...state];
+    case 'UPDATE':
+      return state.map((e) => (e.id === action.payload.id ? action.payload : e));
     case 'DELETE':
       return state.filter((e) => e.id !== action.payload);
     case 'CONVERT_ALL': {
@@ -37,6 +40,7 @@ interface ExpenseContextValue {
   expenses: Expense[];
   isLoading: boolean;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense: (expense: Expense) => void;
   deleteExpense: (id: string) => void;
 }
 
@@ -82,12 +86,16 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'ADD', payload: { ...expense, id } });
   }, []);
 
+  const updateExpense = useCallback((expense: Expense) => {
+    dispatch({ type: 'UPDATE', payload: expense });
+  }, []);
+
   const deleteExpense = useCallback((id: string) => {
     dispatch({ type: 'DELETE', payload: id });
   }, []);
 
   return (
-    <ExpenseContext.Provider value={{ expenses, isLoading, addExpense, deleteExpense }}>
+    <ExpenseContext.Provider value={{ expenses, isLoading, addExpense, updateExpense, deleteExpense }}>
       {children}
     </ExpenseContext.Provider>
   );

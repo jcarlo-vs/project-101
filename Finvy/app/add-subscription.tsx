@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useSubscriptions } from '@/context/SubscriptionContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/context/ToastContext';
 import {
   Theme,
   CategoryColors,
@@ -47,6 +48,7 @@ export default function AddSubscriptionScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { subscriptions, addSubscription, updateSubscription, deleteSubscription } = useSubscriptions();
   const { currency } = useCurrency();
+  const { showToast } = useToast();
 
   const existing = id ? subscriptions.find((s) => s.id === id) : undefined;
   const isEdit = !!existing;
@@ -111,6 +113,7 @@ export default function AddSubscriptionScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(isEdit ? 'Subscription updated' : 'Subscription added');
     router.back();
   };
 

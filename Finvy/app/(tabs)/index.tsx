@@ -18,7 +18,7 @@ import {
 } from '@/utils/calculations';
 import { getTotalMinimumPayments, getAverageUtilization, getUpcomingDueDates, getDaysUntilDue } from '@/utils/credit-card-calculations';
 import { getTotalMonthlyBills, getUpcomingBills, getDaysUntilDue as getBillDaysUntilDue } from '@/utils/bill-calculations';
-import { getTotalMonthlyLoanPayments, getUpcomingLoanPayments, getDaysUntilDue as getLoanDaysUntilDue } from '@/utils/loan-calculations';
+import { getTotalMonthlyLoanPayments, getUpcomingLoanPayments, getDaysUntilDue as getLoanDaysUntilDue, getTotalMissedPayments } from '@/utils/loan-calculations';
 import { getTotalMonthlyObligations, getTotalDebt } from '@/utils/dashboard-calculations';
 import {
   getTotalExpensesThisMonth, getCategorySpending, getTotalBudgetLimit,
@@ -58,6 +58,7 @@ export default function DashboardScreen() {
   const upcomingDue = useMemo(() => getUpcomingDueDates(creditCards, 7), [creditCards]);
   const upcomingBills = useMemo(() => getUpcomingBills(bills, 7), [bills]);
   const upcomingLoans = useMemo(() => getUpcomingLoanPayments(loans, 7), [loans]);
+  const missedLoanPayments = useMemo(() => getTotalMissedPayments(loans), [loans]);
 
   // Budget data
   const expensesThisMonth = useMemo(() => getTotalExpensesThisMonth(expenses), [expenses]);
@@ -150,6 +151,16 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
+          {missedLoanPayments > 0 && (
+            <TouchableOpacity style={styles.missedBanner} onPress={() => router.push('/(tabs)/loans')}>
+              <Ionicons name="alert-circle" size={20} color="#FFB347" />
+              <Text style={styles.missedBannerText}>
+                {missedLoanPayments} loan payment{missedLoanPayments !== 1 ? 's' : ''} need{missedLoanPayments === 1 ? 's' : ''} review
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#FFB347" />
+            </TouchableOpacity>
+          )}
+
           {(upcomingDue.length > 0 || upcomingBills.length > 0 || upcomingLoans.length > 0) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Upcoming payments</Text>
@@ -164,7 +175,7 @@ export default function DashboardScreen() {
                   <Text style={styles.alertText}>{card.name} · {formatCurrency(card.minimumPayment, sym)} due in {days}d</Text>
                 </TouchableOpacity>); })}
               {upcomingLoans.map((loan) => { const days = getLoanDaysUntilDue(loan); return (
-                <TouchableOpacity key={loan.id} style={styles.alertRow} onPress={() => router.push({ pathname: '/add-loan', params: { id: loan.id } })}>
+                <TouchableOpacity key={loan.id} style={styles.alertRow} onPress={() => router.push({ pathname: '/loan-detail', params: { id: loan.id } })}>
                   <Ionicons name="cash-outline" size={18} color={days <= 3 ? '#FF6B6B' : '#FFB347'} />
                   <Text style={styles.alertText}>{loan.name} · {formatCurrency(loan.monthlyPayment, sym)} due in {days}d</Text>
                 </TouchableOpacity>); })}
@@ -275,13 +286,13 @@ export default function DashboardScreen() {
               <View key={date}>
                 <Text style={styles.dateLabel}>{formatDateLabel(date)}</Text>
                 {items.map((e) => (
-                  <View key={e.id} style={styles.expenseItem}>
+                  <TouchableOpacity key={e.id} style={styles.expenseItem} onPress={() => router.push({ pathname: '/add-expense', params: { id: e.id } })}>
                     <Ionicons name={ExpenseCategoryIcons[e.category] as any} size={16} color={ExpenseCategoryColors[e.category]} />
                     <View style={styles.expenseInfo}>
                       <Text style={styles.expenseNote}>{e.note || e.category}</Text>
                     </View>
                     <Text style={styles.expenseAmount}>{formatCurrency(e.amount, sym)}</Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             ))}
@@ -385,6 +396,15 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', color: '#999', marginBottom: 14 },
   barTrack: { height: 6, backgroundColor: Theme.cardBorder, borderRadius: 3, marginTop: 6 },
   barFill: { height: 6, borderRadius: 3 },
+
+  // Missed payments
+  missedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 20, marginBottom: 16, padding: 14,
+    backgroundColor: '#FFB34710', borderWidth: 1, borderColor: '#FFB34722',
+    borderRadius: Theme.borderRadius.card,
+  },
+  missedBannerText: { flex: 1, fontSize: 13, fontWeight: '500', color: '#FFB347' },
 
   // Overview
   moduleRow: {

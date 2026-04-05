@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import {
   LayoutDashboard,
   KanbanSquare,
@@ -13,6 +13,7 @@ import {
   Settings,
   FolderKanban,
   CalendarDays,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,87 +26,47 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { WorkspaceSwitcher } from "./workspace-switcher";
+import { ProjectSwitcher } from "./project-switcher";
 
-interface AppSidebarProps {
-  workspaceSlug?: string;
-  projectId?: string;
-}
-
-export function AppSidebar({ workspaceSlug, projectId }: AppSidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
+  const params = useParams<{ workspaceSlug?: string; projectId?: string }>();
+
+  const workspaceSlug = params.workspaceSlug;
+  const projectId = params.projectId;
 
   const workspaceBase = workspaceSlug ? `/${workspaceSlug}` : "";
   const projectBase =
-    workspaceSlug && projectId
-      ? `/${workspaceSlug}/${projectId}`
-      : "";
+    workspaceSlug && projectId ? `/${workspaceSlug}/${projectId}` : "";
 
   const workspaceItems = workspaceSlug
     ? [
-        {
-          title: "Dashboard",
-          url: workspaceBase,
-          icon: LayoutDashboard,
-        },
-        {
-          title: "Projects",
-          url: `${workspaceBase}/projects`,
-          icon: FolderKanban,
-        },
-        {
-          title: "Invoices",
-          url: `${workspaceBase}/invoices`,
-          icon: Receipt,
-        },
-        {
-          title: "AI Summaries",
-          url: `${workspaceBase}/summaries`,
-          icon: Sparkles,
-        },
-        {
-          title: "Settings",
-          url: `${workspaceBase}/settings`,
-          icon: Settings,
-        },
+        { title: "Dashboard", url: workspaceBase, icon: LayoutDashboard },
+        { title: "Projects", url: `${workspaceBase}/projects`, icon: FolderKanban },
+        { title: "Invoices", url: `${workspaceBase}/invoices`, icon: Receipt },
+        { title: "AI Summaries", url: `${workspaceBase}/summaries`, icon: Sparkles },
+        { title: "Members", url: `${workspaceBase}/settings/members`, icon: Users },
+        { title: "Settings", url: `${workspaceBase}/settings`, icon: Settings },
       ]
     : [];
 
   const projectItems =
     workspaceSlug && projectId
       ? [
-          {
-            title: "Board",
-            url: `${projectBase}/board`,
-            icon: KanbanSquare,
-          },
-          {
-            title: "Time Tracking",
-            url: `${projectBase}/time`,
-            icon: Clock,
-          },
-          {
-            title: "Reports",
-            url: `${projectBase}/reports`,
-            icon: FileText,
-          },
-          {
-            title: "Calendar",
-            url: `${projectBase}/calendar`,
-            icon: CalendarDays,
-          },
+          { title: "Board", url: `${projectBase}/board`, icon: KanbanSquare },
+          { title: "Time Tracking", url: `${projectBase}/time`, icon: Clock },
+          { title: "Reports", url: `${projectBase}/reports`, icon: FileText },
+          { title: "Calendar", url: `${projectBase}/calendar`, icon: CalendarDays },
         ]
       : [];
 
   return (
     <Sidebar>
       <SidebarHeader>
-        <Link href="/workspaces" className="flex items-center gap-2 px-2 py-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-            FH
-          </div>
-          <span className="text-lg font-semibold">FreelanceHub</span>
-        </Link>
+        <WorkspaceSwitcher currentSlug={workspaceSlug} />
       </SidebarHeader>
 
       <SidebarContent>
@@ -118,7 +79,11 @@ export function AppSidebar({ workspaceSlug, projectId }: AppSidebarProps) {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       render={<Link href={item.url} />}
-                      isActive={pathname === item.url}
+                      isActive={
+                        item.url === workspaceBase
+                          ? pathname === item.url
+                          : pathname.startsWith(item.url)
+                      }
                     >
                       <item.icon />
                       <span>{item.title}</span>
@@ -130,25 +95,38 @@ export function AppSidebar({ workspaceSlug, projectId }: AppSidebarProps) {
           </SidebarGroup>
         )}
 
-        {projectItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Project</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {projectItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      render={<Link href={item.url} />}
-                      isActive={pathname === item.url}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
+        {workspaceSlug && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Project</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <ProjectSwitcher
+                      workspaceSlug={workspaceSlug}
+                      currentProjectId={projectId}
+                    />
                   </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                </SidebarMenu>
+                {projectItems.length > 0 && (
+                  <SidebarMenu>
+                    {projectItems.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          render={<Link href={item.url} />}
+                          isActive={pathname.startsWith(item.url)}
+                        >
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
 
         {!workspaceSlug && (

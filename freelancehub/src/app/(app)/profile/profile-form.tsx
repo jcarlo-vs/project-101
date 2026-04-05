@@ -27,8 +27,8 @@ export function ProfileForm({ email, fullName }: ProfileFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Profile</CardTitle>
-        <CardDescription>Manage your account settings</CardDescription>
+        <CardTitle>Your Profile</CardTitle>
+        <CardDescription>Update your personal information</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">

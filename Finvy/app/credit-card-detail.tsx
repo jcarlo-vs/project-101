@@ -19,19 +19,21 @@ function todayISO(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+type ActiveForm = null | 'payment' | 'charge' | 'updateBalance';
+
 export default function CreditCardDetailScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { creditCards, addPayment, deletePayment } = useCreditCards();
+  const { creditCards, addPayment, deletePayment, addCharge, updateBalance } = useCreditCards();
   const { currency } = useCurrency();
   const sym = currency.symbol;
 
   const card = creditCards.find((c) => c.id === id);
 
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentNote, setPaymentNote] = useState('');
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [activeForm, setActiveForm] = useState<ActiveForm>(null);
+  const [formAmount, setFormAmount] = useState('');
+  const [formNote, setFormNote] = useState('');
   const [deletePaymentTarget, setDeletePaymentTarget] = useState<string | null>(null);
 
   if (!card) {
@@ -49,22 +51,56 @@ export default function CreditCardDetailScreen() {
   const interest = getMonthlyInterest(card);
   const daysUntilDue = getDaysUntilDue(card);
   const utilColor = getUtilizationColor(util);
+  const available = Math.max(0, card.creditLimit - card.currentBalance);
+  const statementBal = card.statementBalance ?? 0;
+
+  const resetForm = () => {
+    setFormAmount('');
+    setFormNote('');
+    setActiveForm(null);
+  };
+
+  const toggleForm = (form: ActiveForm) => {
+    if (activeForm === form) {
+      resetForm();
+    } else {
+      setFormAmount('');
+      setFormNote('');
+      setActiveForm(form);
+    }
+  };
 
   const handleAddPayment = () => {
-    const amount = parseFloat(paymentAmount);
-    if (!paymentAmount || isNaN(amount) || amount <= 0) {
+    const amount = parseFloat(formAmount);
+    if (!formAmount || isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid amount', 'Please enter a valid payment amount.');
       return;
     }
-    addPayment(card.id, {
-      date: todayISO(),
-      amount,
-      note: paymentNote.trim() || undefined,
-    });
+    addPayment(card.id, { date: todayISO(), amount, note: formNote.trim() || undefined });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setPaymentAmount('');
-    setPaymentNote('');
-    setShowPaymentForm(false);
+    resetForm();
+  };
+
+  const handleAddCharge = () => {
+    const amount = parseFloat(formAmount);
+    if (!formAmount || isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid amount', 'Please enter a valid amount.');
+      return;
+    }
+    addCharge(card.id, amount, formNote.trim() || undefined);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    resetForm();
+  };
+
+  const handleUpdateBalance = () => {
+    const amount = parseFloat(formAmount);
+    if (!formAmount || isNaN(amount)) {
+      Alert.alert('Invalid amount', 'Please enter your current balance.');
+      return;
+    }
+    updateBalance(card.id, amount);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    resetForm();
   };
 
   return (
@@ -85,20 +121,44 @@ export default function CreditCardDetailScreen() {
         <CreditCardVisual card={card} size="large" />
       </View>
 
+      {/* Balance Summary */}
+      <View style={styles.balanceSummary}>
+        <View style={styles.balanceMain}>
+          <Text style={styles.balanceLabel}>Current Balance</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(card.currentBalance, sym)}</Text>
+        </View>
+        <View style={styles.balanceRow}>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceItemLabel}>Available</Text>
+            <Text style={[styles.balanceItemValue, { color: '#6BCB77' }]}>{formatCurrency(available, sym)}</Text>
+          </View>
+          <View style={styles.balanceDivider} />
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceItemLabel}>Statement Due</Text>
+            <Text style={[styles.balanceItemValue, statementBal > 0 ? { color: '#FFB347' } : {}]}>
+              {statementBal > 0 ? formatCurrency(statementBal, sym) : '—'}
+            </Text>
+          </View>
+          <View style={styles.balanceDivider} />
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceItemLabel}>Limit</Text>
+            <Text style={styles.balanceItemValue}>{formatCurrency(card.creditLimit, sym)}</Text>
+          </View>
+        </View>
+        {/* Utilization bar */}
+        <View style={styles.utilSection}>
+          <View style={styles.utilHeader}>
+            <Text style={styles.utilLabel}>Utilization</Text>
+            <Text style={[styles.utilPercent, { color: utilColor }]}>{util.toFixed(0)}%</Text>
+          </View>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${Math.min(util, 100)}%`, backgroundColor: utilColor }]} />
+          </View>
+        </View>
+      </View>
+
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Balance</Text>
-          <Text style={styles.statValue}>{formatCurrency(card.currentBalance, sym)}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Limit</Text>
-          <Text style={styles.statValue}>{formatCurrency(card.creditLimit, sym)}</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Utilization</Text>
-          <Text style={[styles.statValue, { color: utilColor }]}>{util.toFixed(1)}%</Text>
-        </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>APR</Text>
           <Text style={styles.statValue}>{card.apr}%</Text>
@@ -116,44 +176,85 @@ export default function CreditCardDetailScreen() {
       {/* Due Date Banner */}
       <View style={[styles.dueBanner, daysUntilDue <= 3 && styles.dueBannerUrgent]}>
         <Ionicons name="calendar" size={20} color={daysUntilDue <= 3 ? '#FF6B6B' : Theme.accent} />
-        <Text style={styles.dueText}>Payment due in {daysUntilDue} day{daysUntilDue !== 1 ? 's' : ''}</Text>
+        <View style={styles.dueInfo}>
+          <Text style={styles.dueText}>Payment due in {daysUntilDue} day{daysUntilDue !== 1 ? 's' : ''}</Text>
+          {statementBal > 0 && (
+            <Text style={styles.dueSubText}>{formatCurrency(statementBal, sym)} statement balance</Text>
+          )}
+        </View>
       </View>
 
-      {/* Payment Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Payments</Text>
-          <TouchableOpacity onPress={() => setShowPaymentForm(!showPaymentForm)}>
-            <Ionicons name={showPaymentForm ? 'close' : 'add-circle-outline'} size={24} color={Theme.accent} />
-          </TouchableOpacity>
-        </View>
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={[styles.quickBtn, styles.quickBtnPayment, activeForm === 'payment' && styles.quickBtnActive]}
+          onPress={() => toggleForm('payment')}
+        >
+          <Ionicons name="arrow-down-circle-outline" size={20} color="#6BCB77" />
+          <Text style={styles.quickBtnText}>Pay</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickBtn, styles.quickBtnCharge, activeForm === 'charge' && styles.quickBtnActive]}
+          onPress={() => toggleForm('charge')}
+        >
+          <Ionicons name="cart-outline" size={20} color="#FF6B6B" />
+          <Text style={styles.quickBtnText}>Charge</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.quickBtn, activeForm === 'updateBalance' && styles.quickBtnActive]}
+          onPress={() => toggleForm('updateBalance')}
+        >
+          <Ionicons name="refresh-outline" size={20} color={Theme.accent} />
+          <Text style={styles.quickBtnText}>Update</Text>
+        </TouchableOpacity>
+      </View>
 
-        {showPaymentForm && (
-          <View style={styles.paymentForm}>
-            <View style={styles.paymentRow}>
-              <Text style={styles.dollarSign}>{sym}</Text>
-              <TextInput
-                style={[styles.paymentInput, { flex: 1 }]}
-                value={paymentAmount}
-                onChangeText={setPaymentAmount}
-                placeholder="Amount"
-                placeholderTextColor={Theme.textMuted}
-                keyboardType="decimal-pad"
-              />
-            </View>
+      {/* Active Form */}
+      {activeForm && (
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>
+            {activeForm === 'payment' ? 'Record Payment' : activeForm === 'charge' ? 'Log Purchase' : 'Update Balance'}
+          </Text>
+          {activeForm === 'updateBalance' && (
+            <Text style={styles.formHint}>Set your balance to match your statement or app</Text>
+          )}
+          <View style={styles.formRow}>
+            <Text style={styles.dollarSign}>{sym}</Text>
             <TextInput
-              style={styles.paymentInput}
-              value={paymentNote}
-              onChangeText={setPaymentNote}
-              placeholder="Note (optional)"
+              style={[styles.formInput, { flex: 1 }]}
+              value={formAmount}
+              onChangeText={setFormAmount}
+              placeholder={activeForm === 'updateBalance' ? card.currentBalance.toFixed(2) : '0.00'}
+              placeholderTextColor={Theme.textMuted}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+          </View>
+          {activeForm !== 'updateBalance' && (
+            <TextInput
+              style={styles.formInput}
+              value={formNote}
+              onChangeText={setFormNote}
+              placeholder={activeForm === 'charge' ? 'What did you buy?' : 'Note (optional)'}
               placeholderTextColor={Theme.textMuted}
             />
-            <TouchableOpacity style={styles.recordBtn} onPress={handleAddPayment}>
-              <Text style={styles.recordBtnText}>Record Payment</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          )}
+          <TouchableOpacity
+            style={[styles.formSubmit, {
+              backgroundColor: activeForm === 'payment' ? '#6BCB77' : activeForm === 'charge' ? '#FF6B6B' : Theme.accent,
+            }]}
+            onPress={activeForm === 'payment' ? handleAddPayment : activeForm === 'charge' ? handleAddCharge : handleUpdateBalance}
+          >
+            <Text style={styles.formSubmitText}>
+              {activeForm === 'payment' ? 'Record Payment' : activeForm === 'charge' ? 'Log Purchase' : 'Update Balance'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
+      {/* Payment History */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Payment history</Text>
         {card.payments.length === 0 ? (
           <Text style={styles.emptyText}>No payments recorded yet.</Text>
         ) : (
@@ -201,44 +302,88 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '600', color: Theme.textPrimary },
   cardContainer: { paddingHorizontal: 20, marginBottom: 20 },
+
+  // Balance summary
+  balanceSummary: {
+    marginHorizontal: 20, marginBottom: 16, padding: 18,
+    backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
+    borderRadius: Theme.borderRadius.card,
+  },
+  balanceMain: { alignItems: 'center', marginBottom: 16 },
+  balanceLabel: { fontSize: 11, color: Theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  balanceAmount: { fontSize: 32, fontWeight: '700', fontFamily: Fonts?.mono, color: Theme.textPrimary, marginTop: 4 },
+  balanceRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
+  balanceItem: { alignItems: 'center', flex: 1 },
+  balanceItemLabel: { fontSize: 10, color: Theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  balanceItemValue: { fontSize: 14, fontWeight: '600', fontFamily: Fonts?.mono, color: Theme.textPrimary, marginTop: 2 },
+  balanceDivider: { width: 1, backgroundColor: Theme.separator, marginVertical: 2 },
+  utilSection: { paddingTop: 12, borderTopWidth: 1, borderTopColor: Theme.separator },
+  utilHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  utilLabel: { fontSize: 11, color: Theme.textMuted },
+  utilPercent: { fontSize: 12, fontWeight: '700', fontFamily: Fonts?.mono },
+  barTrack: { height: 6, backgroundColor: Theme.cardBorder, borderRadius: 3 },
+  barFill: { height: 6, borderRadius: 3 },
+
+  // Stats
   statsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 10, marginBottom: 16,
+    flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16,
   },
   statBox: {
-    width: '31%', backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
+    flex: 1, backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
     borderRadius: 14, padding: 12,
   },
   statLabel: { fontSize: 10, color: Theme.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   statValue: { fontSize: 15, fontWeight: '700', fontFamily: Fonts?.mono, color: Theme.textPrimary },
+
+  // Due banner
   dueBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: 20, marginBottom: 20, padding: 14,
+    marginHorizontal: 20, marginBottom: 16, padding: 14,
     backgroundColor: Theme.accent + '12', borderWidth: 1, borderColor: Theme.accent + '33',
     borderRadius: Theme.borderRadius.card,
   },
   dueBannerUrgent: {
     backgroundColor: '#FF6B6B12', borderColor: '#FF6B6B33',
   },
+  dueInfo: { flex: 1 },
   dueText: { fontSize: 14, fontWeight: '500', color: Theme.textBody },
-  section: { paddingHorizontal: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#999' },
-  paymentForm: {
-    backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
-    borderRadius: Theme.borderRadius.card, padding: 14, marginBottom: 14, gap: 10,
+  dueSubText: { fontSize: 11, color: Theme.textMuted, marginTop: 2, fontFamily: Fonts?.mono },
+
+  // Quick actions
+  quickActions: {
+    flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16,
   },
-  paymentRow: { flexDirection: 'row', alignItems: 'center' },
+  quickBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 12,
+    backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
+  },
+  quickBtnPayment: {},
+  quickBtnCharge: {},
+  quickBtnActive: { borderColor: Theme.accent + '66', backgroundColor: Theme.accent + '08' },
+  quickBtnText: { fontSize: 13, fontWeight: '600', color: Theme.textBody },
+
+  // Form
+  formCard: {
+    marginHorizontal: 20, marginBottom: 16, padding: 16,
+    backgroundColor: Theme.cardBg, borderWidth: 1, borderColor: Theme.cardBorder,
+    borderRadius: Theme.borderRadius.card, gap: 10,
+  },
+  formTitle: { fontSize: 15, fontWeight: '600', color: Theme.textPrimary },
+  formHint: { fontSize: 11, color: Theme.textMuted, marginTop: -4 },
+  formRow: { flexDirection: 'row', alignItems: 'center' },
   dollarSign: { fontSize: 18, fontWeight: '600', color: Theme.textMuted, marginRight: 8 },
-  paymentInput: {
+  formInput: {
     backgroundColor: Theme.inputBg, borderWidth: 1, borderColor: Theme.inputBorder,
     borderRadius: Theme.borderRadius.input, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14, color: Theme.textPrimary,
   },
-  recordBtn: {
-    backgroundColor: '#6BCB77', borderRadius: Theme.borderRadius.button,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  recordBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  formSubmit: { borderRadius: Theme.borderRadius.button, paddingVertical: 12, alignItems: 'center' },
+  formSubmitText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+
+  // Payments
+  section: { paddingHorizontal: 20 },
+  sectionTitle: { fontSize: 14, fontWeight: '600', color: '#999', marginBottom: 14 },
   paymentItem: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: Theme.separator,

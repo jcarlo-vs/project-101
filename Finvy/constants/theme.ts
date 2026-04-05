@@ -198,6 +198,7 @@ export interface CreditCard {
   color: string;
   creditLimit: number;
   currentBalance: number;
+  statementBalance: number;
   minimumPayment: number;
   statementDate: number;
   dueDate: number;

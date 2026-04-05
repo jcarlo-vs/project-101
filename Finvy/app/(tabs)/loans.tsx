@@ -12,7 +12,7 @@ import { SelectionBar } from '@/components/selection-bar';
 import { useBulkSelect } from '@/hooks/use-bulk-select';
 import { Theme, LoanTypeColors, LoanTypeIcons, Fonts, type Loan } from '@/constants/theme';
 import { formatCurrency } from '@/utils/calculations';
-import { getLoanProgress, getDaysUntilDue, getPayoffDate } from '@/utils/loan-calculations';
+import { getLoanProgress, getDaysUntilDue, getPayoffDate, getMissedPayments } from '@/utils/loan-calculations';
 
 export default function LoansScreen() {
   const { top } = useSafeAreaInsets();
@@ -30,13 +30,14 @@ export default function LoansScreen() {
       const progress = getLoanProgress(loan);
       const days = getDaysUntilDue(loan);
       const payoff = getPayoffDate(loan);
+      const missedCount = getMissedPayments(loan).length;
       const isSelected = bulk.selectedIds.has(loan.id);
 
       return (
         <TouchableOpacity
           style={[styles.card, isSelected && styles.cardSelected]}
           onLongPress={() => bulk.startSelecting(loan.id)}
-          onPress={() => bulk.isSelecting ? bulk.toggleItem(loan.id) : router.push({ pathname: '/add-loan', params: { id: loan.id } })}
+          onPress={() => bulk.isSelecting ? bulk.toggleItem(loan.id) : router.push({ pathname: '/loan-detail', params: { id: loan.id } })}
           activeOpacity={bulk.isSelecting ? 0.7 : 1}
         >
           <View style={styles.cardTop}>
@@ -74,11 +75,20 @@ export default function LoansScreen() {
             </View>
           </View>
 
+          {missedCount > 0 && !bulk.isSelecting && (
+            <View style={styles.missedBadge}>
+              <Ionicons name="alert-circle" size={14} color="#FFB347" />
+              <Text style={styles.missedBadgeText}>
+                {missedCount} unpaid month{missedCount !== 1 ? 's' : ''} — tap to review
+              </Text>
+            </View>
+          )}
+
           {!bulk.isSelecting && (
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/add-loan', params: { id: loan.id } })}>
-                <Ionicons name="pencil-outline" size={16} color={Theme.textMuted} />
-                <Text style={styles.actionText}>Edit</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/loan-detail', params: { id: loan.id } })}>
+                <Ionicons name="eye-outline" size={16} color={Theme.textMuted} />
+                <Text style={styles.actionText}>Details</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn} onPress={() => setDeleteTarget(loan)}>
                 <Ionicons name="trash-outline" size={16} color={Theme.accentSecondary} />
@@ -200,6 +210,12 @@ const styles = StyleSheet.create({
   barFill: { height: 6, borderRadius: 3 },
   progressFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   progressText: { fontSize: 10, color: Theme.textMuted },
+  missedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFB34710', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10,
+  },
+  missedBadgeText: { fontSize: 11, color: '#FFB347', fontWeight: '500' },
   actions: {
     flexDirection: 'row', gap: 16, paddingTop: 12,
     borderTopWidth: 1, borderTopColor: Theme.separator,

@@ -1,16 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity,
   Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useExpenses } from '@/context/ExpenseContext';
 import { useBills } from '@/context/BillContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/context/ToastContext';
+import { ConfirmModal } from '@/components/confirm-modal';
 import {
   Theme, ExpenseCategoryColors, ExpenseCategoryIcons, EXPENSE_CATEGORIES, Fonts,
   type ExpenseCategory,
@@ -26,14 +28,28 @@ function todayISO(): string {
 export default function AddExpenseScreen() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
-  const { expenses, addExpense } = useExpenses();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
   const { bills } = useBills();
   const { currency } = useCurrency();
+  const { showToast } = useToast();
   const sym = currency.symbol;
+
+  const existing = id ? expenses.find((e) => e.id === id) : undefined;
+  const isEdit = !!existing;
 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [note, setNote] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    if (existing) {
+      setAmount(existing.amount.toString());
+      setCategory(existing.category);
+      setNote(existing.note ?? '');
+    }
+  }, [existing]);
 
   // Budget bills (trackSpending=true) with remaining amounts
   const budgetBills = useMemo(() => {
@@ -68,14 +84,24 @@ export default function AddExpenseScreen() {
       return;
     }
 
-    addExpense({
-      amount: parsed,
-      category,
-      note: note.trim() || undefined,
-      date: todayISO(),
-    });
+    if (isEdit && existing) {
+      updateExpense({
+        ...existing,
+        amount: parsed,
+        category,
+        note: note.trim() || undefined,
+      });
+    } else {
+      addExpense({
+        amount: parsed,
+        category,
+        note: note.trim() || undefined,
+        date: todayISO(),
+      });
+    }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(isEdit ? 'Expense updated' : 'Expense logged');
     router.back();
   };
 
@@ -86,7 +112,7 @@ export default function AddExpenseScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={28} color={Theme.textMuted} />
           </TouchableOpacity>
-          <Text style={styles.title}>Log Expense</Text>
+          <Text style={styles.title}>{isEdit ? 'Edit Expense' : 'Log Expense'}</Text>
           <View style={{ width: 28 }} />
         </View>
 
@@ -174,9 +200,35 @@ export default function AddExpenseScreen() {
         />
 
         <TouchableOpacity style={[styles.saveButton, !category && styles.saveButtonDisabled]} onPress={handleSave}>
-          <Text style={styles.saveText}>Log Expense</Text>
+          <Text style={styles.saveText}>{isEdit ? 'Save Changes' : 'Log Expense'}</Text>
         </TouchableOpacity>
+
+        {isEdit && (
+          <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
+            <Ionicons name="trash-outline" size={18} color={Theme.accentSecondary} />
+            <Text style={styles.deleteText}>Delete Expense</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      <ConfirmModal
+        visible={showDeleteModal}
+        icon="trash-outline"
+        iconColor={Theme.accentSecondary}
+        title="Delete Expense"
+        message="Are you sure you want to delete this expense?"
+        confirmText="Delete"
+        confirmColor={Theme.accentSecondary}
+        onConfirm={() => {
+          if (existing) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            deleteExpense(existing.id);
+          }
+          setShowDeleteModal(false);
+          router.back();
+        }}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -247,4 +299,6 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.5 },
   saveText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+  deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 12 },
+  deleteText: { fontSize: 15, color: Theme.accentSecondary, fontWeight: '500' },
 });

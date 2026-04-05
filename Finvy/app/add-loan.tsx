@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useLoans } from '@/context/LoanContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/context/ToastContext';
 import { ConfirmModal } from '@/components/confirm-modal';
 import { DayPickerField } from '@/components/date-picker-field';
 import {
@@ -28,6 +29,7 @@ export default function AddLoanScreen() {
   const { loans, addLoan, updateLoan, deleteLoan } = useLoans();
   const { currency } = useCurrency();
 
+  const { showToast } = useToast();
   const existing = id ? loans.find((l) => l.id === id) : undefined;
   const isEdit = !!existing;
 
@@ -43,6 +45,7 @@ export default function AddLoanScreen() {
   const [dueDate, setDueDate] = useState('15');
   const [reminderOffset, setReminderOffset] = useState<ReminderOffset>(3);
   const [notes, setNotes] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
@@ -59,20 +62,24 @@ export default function AddLoanScreen() {
       setDueDate(existing.dueDate.toString());
       setReminderOffset(existing.reminderOffset);
       setNotes(existing.notes ?? '');
+      if (existing.interestRate > 0 || existing.termMonths > 0 || existing.lender || existing.principalAmount !== existing.currentBalance) {
+        setShowAdvanced(true);
+      }
     }
   }, [existing]);
 
   const handleSave = () => {
     if (!name.trim()) { Alert.alert('Name required'); return; }
-    const principal = parseFloat(principalAmount);
-    if (!principalAmount || isNaN(principal) || principal <= 0) { Alert.alert('Invalid principal amount'); return; }
+    const balance = parseFloat(currentBalance);
+    if (!currentBalance || isNaN(balance) || balance <= 0) { Alert.alert('Invalid balance', 'Please enter a current balance.'); return; }
+    const principal = parseFloat(principalAmount) || balance;
 
     const loan = {
       name: name.trim(),
       lender: lender.trim(),
       type: loanType,
       principalAmount: principal,
-      currentBalance: parseFloat(currentBalance) || principal,
+      currentBalance: balance,
       monthlyPayment: parseFloat(monthlyPayment) || 0,
       interestRate: parseFloat(interestRate) || 0,
       termMonths: parseInt(termMonths) || 0,
@@ -90,6 +97,7 @@ export default function AddLoanScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(isEdit ? 'Loan updated' : 'Loan added');
     router.back();
   };
 
@@ -107,9 +115,6 @@ export default function AddLoanScreen() {
         <Text style={styles.label}>Loan Name</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Car Loan" placeholderTextColor={Theme.textMuted} />
 
-        <Text style={styles.label}>Lender / Bank</Text>
-        <TextInput style={styles.input} value={lender} onChangeText={setLender} placeholder="e.g. BPI" placeholderTextColor={Theme.textMuted} />
-
         <Text style={styles.label}>Loan Type</Text>
         <View style={styles.typeGrid}>
           {LOAN_TYPES.map((t) => (
@@ -124,39 +129,49 @@ export default function AddLoanScreen() {
           ))}
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfField}>
+        <Text style={styles.label}>Current Balance</Text>
+        <View style={styles.costRow}>
+          <Text style={styles.dollarSign}>{currency.symbol}</Text>
+          <TextInput style={[styles.input, { flex: 1 }]} value={currentBalance} onChangeText={setCurrentBalance} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+        </View>
+
+        <Text style={styles.label}>Monthly Payment</Text>
+        <View style={styles.costRow}>
+          <Text style={styles.dollarSign}>{currency.symbol}</Text>
+          <TextInput style={[styles.input, { flex: 1 }]} value={monthlyPayment} onChangeText={setMonthlyPayment} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+        </View>
+
+        {/* Advanced Details */}
+        <TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvanced(!showAdvanced)}>
+          <Text style={styles.advancedToggleText}>Advanced details</Text>
+          <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={16} color={Theme.textMuted} />
+        </TouchableOpacity>
+
+        {showAdvanced && (
+          <>
+            <Text style={styles.advancedHint}>Add for more accurate payoff estimates</Text>
+
+            <Text style={styles.label}>Lender / Bank</Text>
+            <TextInput style={styles.input} value={lender} onChangeText={setLender} placeholder="e.g. BPI" placeholderTextColor={Theme.textMuted} />
+
             <Text style={styles.label}>Original Amount</Text>
             <View style={styles.costRow}>
               <Text style={styles.dollarSign}>{currency.symbol}</Text>
               <TextInput style={[styles.input, { flex: 1 }]} value={principalAmount} onChangeText={setPrincipalAmount} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
             </View>
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>Current Balance</Text>
-            <View style={styles.costRow}>
-              <Text style={styles.dollarSign}>{currency.symbol}</Text>
-              <TextInput style={[styles.input, { flex: 1 }]} value={currentBalance} onChangeText={setCurrentBalance} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
-            </View>
-          </View>
-        </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>Monthly Payment</Text>
-            <View style={styles.costRow}>
-              <Text style={styles.dollarSign}>{currency.symbol}</Text>
-              <TextInput style={[styles.input, { flex: 1 }]} value={monthlyPayment} onChangeText={setMonthlyPayment} placeholder="0.00" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Text style={styles.label}>Interest Rate %</Text>
+                <TextInput style={styles.input} value={interestRate} onChangeText={setInterestRate} placeholder="5.0" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
+              </View>
+              <View style={styles.halfField}>
+                <Text style={styles.label}>Term (months)</Text>
+                <TextInput style={styles.input} value={termMonths} onChangeText={setTermMonths} placeholder="e.g. 60" placeholderTextColor={Theme.textMuted} keyboardType="number-pad" />
+              </View>
             </View>
-          </View>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>Interest Rate %</Text>
-            <TextInput style={styles.input} value={interestRate} onChangeText={setInterestRate} placeholder="5.0" placeholderTextColor={Theme.textMuted} keyboardType="decimal-pad" />
-          </View>
-        </View>
-
-        <Text style={styles.label}>Loan Term (months)</Text>
-        <TextInput style={styles.input} value={termMonths} onChangeText={setTermMonths} placeholder="e.g. 60 for 5 years" placeholderTextColor={Theme.textMuted} keyboardType="number-pad" />
+          </>
+        )}
 
         <DayPickerField
           label="Payment Due Date"
@@ -238,6 +253,14 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.inputBg, borderWidth: 1, borderColor: Theme.inputBorder,
   },
   typePillText: { fontSize: 13, color: Theme.textBody },
+  advancedToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 24, paddingVertical: 12, paddingHorizontal: 14,
+    backgroundColor: Theme.inputBg, borderWidth: 1, borderColor: Theme.inputBorder,
+    borderRadius: Theme.borderRadius.input,
+  },
+  advancedToggleText: { fontSize: 14, fontWeight: '500', color: Theme.textMuted },
+  advancedHint: { fontSize: 11, color: Theme.textMuted, marginTop: 6, fontStyle: 'italic' },
   reminderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   reminderPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

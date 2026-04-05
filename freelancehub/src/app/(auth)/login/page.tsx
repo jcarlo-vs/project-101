@@ -1,13 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,56 +14,67 @@ export default function LoginPage() {
   );
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>
-          Sign in to your FreelanceHub account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={formAction} className="space-y-4">
-          {state.error && (
-            <p className="text-sm text-destructive text-center">
-              {state.error}
-            </p>
+    <div className="space-y-6">
+      <div className="text-center space-y-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+        <p className="text-sm text-muted-foreground">
+          Sign in to continue to FreelanceHub
+        </p>
+      </div>
+
+      <form action={formAction} className="space-y-4">
+        {state.error && (
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {state.error}
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+          {state.fieldErrors?.email && (
+            <p className="text-xs text-destructive">{state.fieldErrors.email[0]}</p>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="you@example.com" />
-            {state.fieldErrors?.email && (
-              <p className="text-sm text-destructive">{state.fieldErrors.email[0]}</p>
-            )}
-          </div>
-          <div className="space-y-2">
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" />
-            {state.fieldErrors?.password && (
-              <p className="text-sm text-destructive">{state.fieldErrors.password[0]}</p>
-            )}
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Forgot password?
+            </Link>
           </div>
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          <Link
-            href="/forgot-password"
-            className="underline underline-offset-4 hover:text-primary"
-          >
-            Forgot password?
-          </Link>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+          />
+          {state.fieldErrors?.password && (
+            <p className="text-xs text-destructive">{state.fieldErrors.password[0]}</p>
+          )}
         </div>
-        <div className="mt-2 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="underline underline-offset-4 hover:text-primary"
-          >
-            Sign up
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? "Signing in..." : "Sign in"}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/register"
+          className="text-foreground font-medium hover:underline underline-offset-4"
+        >
+          Sign up
+        </Link>
+      </p>
+    </div>
   );
 }

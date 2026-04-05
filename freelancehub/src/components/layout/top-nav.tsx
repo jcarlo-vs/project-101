@@ -9,11 +9,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOut } from "@/lib/actions/auth";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/auth/client";
 
 interface TopNavProps {
   userEmail?: string;
@@ -21,6 +23,14 @@ interface TopNavProps {
 }
 
 export function TopNav({ userEmail, userName }: TopNavProps) {
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
   return (
     <header className="flex h-14 items-center gap-2 border-b px-4">
       <SidebarTrigger />
@@ -49,18 +59,20 @@ export function TopNav({ userEmail, userName }: TopNavProps) {
         <DropdownMenuContent align="end">
           {(userName || userEmail) && (
             <>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  {userName && (
-                    <p className="text-sm font-medium leading-none">{userName}</p>
-                  )}
-                  {userEmail && (
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {userEmail}
-                    </p>
-                  )}
-                </div>
-              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    {userName && (
+                      <p className="text-sm font-medium leading-none">{userName}</p>
+                    )}
+                    {userEmail && (
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {userEmail}
+                      </p>
+                    )}
+                  </div>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </>
           )}
@@ -68,9 +80,7 @@ export function TopNav({ userEmail, userName }: TopNavProps) {
             Profile
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => signOut()}
-          >
+          <DropdownMenuItem onClick={handleSignOut}>
             Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
